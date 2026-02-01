@@ -1,8 +1,8 @@
 Flask==3.0.3
 Werkzeug==3.0.3
-scikit-learn==1.5.1
-numpy==2.0.1
+gunicorn==22.0.0
 python-docx==1.1.2
 PyMuPDF==1.24.9
 pdfplumber==0.11.4
-gunicorn==22.0.0
+numpy==1.26.4
+scikit-learn==1.5.1
