@@ -1,0 +1,12 @@
+\
+.ats-preview{
+  max-height: 340px;
+  overflow: auto;
+  background: #0b1020;
+  color: #d7e3ff;
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  line-height: 1.25rem;
+  white-space: pre-wrap;
+}

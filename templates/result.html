@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="{{ 'en' if ui_lang=='en' else 'fr' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ ui.title }} — Result</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+<body class="bg-grid">
+
+  <nav class="navbar navbar-expand-lg sticky-top nav-glass">
+    <div class="container">
+      <a class="navbar-brand fw-semibold text-decoration-none" href="{{ url_for('index', ui_lang=ui_lang, cv_lang=cv_lang) }}">
+        <i class="bi bi-arrow-left me-2"></i>{{ ui.back }}
+      </a>
+
+      <div class="ms-auto d-flex gap-2 align-items-center">
+        <form method="get" action="{{ url_for('index') }}" class="d-flex gap-2">
+          <input type="hidden" name="cv_lang" value="{{ cv_lang }}">
+          <select class="form-select form-select-sm" name="ui_lang" onchange="this.form.submit()">
+            <option value="fr" {% if ui_lang=='fr' %}selected{% endif %}>FR</option>
+            <option value="en" {% if ui_lang=='en' %}selected{% endif %}>EN</option>
+          </select>
+        </form>
+        <span class="badge rounded-pill text-bg-secondary">
+          {{ meta.get('file_type','?') }}{% if meta.get('backend') %} / {{ meta.get('backend') }}{% endif %}
+        </span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container py-4 py-md-5">
+    <div class="row g-3">
+      <div class="col-lg-4">
+        <div class="card shadow-sm border-0 card-glass h-100">
+          <div class="card-body">
+            {% set score = result.score %}
+            {% set score_class = 'score-good' if score>=75 else ('score-mid' if score>=55 else 'score-bad') %}
+            <div class="d-flex align-items-start justify-content-between">
+              <div>
+                <div class="text-muted small">{{ ui.score }}</div>
+                <div class="display-5 fw-bold {{ score_class }}">{{ score }}</div>
+                <div class="text-muted">/100</div>
+              </div>
+              <div class="score-ring {{ score_class }}">
+                <div class="score-ring-inner">{{ score }}</div>
+              </div>
+            </div>
+
+            <div class="mt-3">
+              <div class="progress" role="progressbar" aria-label="score" aria-valuenow="{{ score }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar" style="width: {{ score }}%"></div>
+              </div>
+            </div>
+
+            <hr>
+            <div class="small text-muted mb-2">{{ ui.details }}</div>
+            {% set b = result.breakdown %}
+
+            <div class="vstack gap-2">
+              {% for label, val, icon in [
+                ('Keywords', b.keyword_match, 'bi-lightning-charge'),
+                ('Similarity', b.similarity, 'bi-diagram-3'),
+                ('Sections', b.sections, 'bi-layout-text-sidebar'),
+                ('Contacts', b.contacts, 'bi-person-lines-fill'),
+                ('Impact', b.impact, 'bi-bar-chart'),
+                ('Length', b.length, 'bi-file-earmark'),
+                ('Readability', b.readability, 'bi-eye')
+              ] %}
+                <div class="metric">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <span><i class="bi {{ icon }} me-2"></i>{{ label }}</span>
+                    <span class="fw-semibold">{{ val }}</span>
+                  </div>
+                  <div class="progress progress-sm">
+                    <div class="progress-bar" style="width: {{ val }}%"></div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+
+            <hr>
+
+            <div class="small text-muted mb-2">{{ ui.stats }}</div>
+            <div class="d-flex justify-content-between"><span>{{ ui.words }}</span><span class="fw-semibold">{{ result.word_count }}</span></div>
+            <div class="d-flex justify-content-between"><span>{{ ui.similarity }}</span><span class="fw-semibold">{{ result.similarity }}</span></div>
+            <div class="d-flex justify-content-between"><span>{{ ui.match_ratio }}</span><span class="fw-semibold">{{ result.keywords.match_ratio }}</span></div>
+
+            <hr>
+
+            <div class="small text-muted mb-2"><i class="bi bi-globe2 me-2"></i>{{ ui.language_detected }}</div>
+            <div class="d-flex justify-content-between"><span>CV</span><span class="fw-semibold">{{ lang_label(result.language.used, ui_lang) }}</span></div>
+            {% if result.language.job_detected %}
+              <div class="d-flex justify-content-between"><span>Job</span><span class="fw-semibold">{{ lang_label(result.language.job_detected, ui_lang) }}</span></div>
+            {% endif %}
+
+            <hr>
+
+            <div class="d-grid gap-2">
+              <button class="btn btn-outline-secondary" type="button" onclick="downloadJson()">
+                <i class="bi bi-download me-2"></i>{{ ui.export_json }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-8">
+        <div class="card shadow-sm border-0 card-glass mb-3">
+          <div class="card-body">
+            <h3 class="h5 mb-3"><i class="bi bi-wrench-adjustable-circle me-2"></i>{{ ui.weak_points }}</h3>
+
+            {% if result.weaknesses|length == 0 %}
+              <div class="alert alert-success mb-0">
+                {{ "No major issues detected 🎉" if ui_lang=='en' else "Rien de bloquant détecté 🎉" }}
+              </div>
+            {% else %}
+              <div class="accordion" id="weakAccordion">
+                {% for w in result.weaknesses %}
+                <div class="accordion-item">
+                  <h2 class="accordion-header">
+                    <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#wk{{ loop.index }}">
+                      {{ w.title }}
+                    </button>
+                  </h2>
+                  <div id="wk{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" data-bs-parent="#weakAccordion">
+                    <div class="accordion-body text-muted">{{ w.fix }}</div>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="card shadow-sm border-0 card-glass mb-3">
+          <div class="card-body">
+            <h3 class="h5 mb-3"><i class="bi bi-key me-2"></i>{{ ui.keywords }}</h3>
+
+            {% if not has_job %}
+              <div class="alert alert-info">
+                {{ "No job description provided: using a generic tech dictionary. For best results, paste the job ad." if ui_lang=='en'
+                   else "Tu n'as pas fourni d'offre : j'utilise un dictionnaire technique générique. Pour une analyse précise, colle l'offre." }}
+              </div>
+            {% endif %}
+
+            <ul class="nav nav-pills mb-3" id="kwTabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="matched-tab" data-bs-toggle="pill" data-bs-target="#matched" type="button" role="tab">
+                  <i class="bi bi-check2-circle me-1"></i>{{ ui.found }}
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="missing-tab" data-bs-toggle="pill" data-bs-target="#missing" type="button" role="tab">
+                  <i class="bi bi-exclamation-circle me-1"></i>{{ ui.missing }}
+                </button>
+              </li>
+            </ul>
+
+            <div class="tab-content" id="kwTabsContent">
+              <div class="tab-pane fade show active" id="matched" role="tabpanel">
+                {% if result.keywords.matched|length == 0 %}
+                  <div class="text-muted">—</div>
+                {% else %}
+                  <div class="chips">
+                    {% for k in result.keywords.matched %}
+                      <span class="chip chip-ok">{{ k }}</span>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+              <div class="tab-pane fade" id="missing" role="tabpanel">
+                {% if result.keywords.missing|length == 0 %}
+                  <div class="text-muted">—</div>
+                {% else %}
+                  <div class="chips">
+                    {% for k in result.keywords.missing %}
+                      <span class="chip chip-warn">{{ k }}</span>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="mt-3 small text-muted">
+              {{ "Tip: put keywords in Skills + inside Experience bullets (with real context)." if ui_lang=='en'
+                 else "Conseil : place les mots-clés dans Compétences + dans l'expérience (avec contexte réel)." }}
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm border-0 card-glass mb-3">
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <h3 class="h6 mb-2"><i class="bi bi-person-lines-fill me-2"></i>{{ ui.contacts }}</h3>
+                <div class="small">
+                  <div><span class="text-muted">Email:</span> {{ result.contacts.emails|join(", ") if result.contacts.emails else "—" }}</div>
+                  <div><span class="text-muted">Phone:</span> {{ result.contacts.phones|join(", ") if result.contacts.phones else "—" }}</div>
+                  <div><span class="text-muted">LinkedIn:</span> {{ result.contacts.linkedin|join(", ") if result.contacts.linkedin else "—" }}</div>
+                  <div><span class="text-muted">GitHub:</span> {{ result.contacts.github|join(", ") if result.contacts.github else "—" }}</div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <h3 class="h6 mb-2"><i class="bi bi-layout-text-sidebar me-2"></i>{{ ui.sections }}</h3>
+                <div class="chips">
+                  {% for name, ok in result.sections.items() %}
+                    <span class="chip {{ 'chip-ok' if ok else 'chip-bad' }}">{{ name }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+
+            {% if result.readability_flags|length > 0 %}
+              <div class="alert alert-warning mt-3 mb-0">
+                <div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle me-2"></i>{{ ui.readability_warnings }}</div>
+                <ul class="mb-0">
+                  {% for f in result.readability_flags %}
+                    <li>{{ f }}</li>
+                  {% endfor %}
+                </ul>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="card shadow-sm border-0 card-glass">
+          <div class="card-body">
+            <h3 class="h5 mb-3"><i class="bi bi-file-earmark-text me-2"></i>{{ ui.preview }}</h3>
+            <pre class="ats-preview">{{ preview }}</pre>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    function downloadJson(){
+      const data = {{ export_payload | tojson }};
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ats_result.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
