@@ -5,7 +5,7 @@ from werkzeug.utils import secure_filename
 from ats import extract_text, analyze_cv
 from ats.lang import SUPPORTED_LANGS, get_ui, lang_label
 
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", os.path.join(os.path.dirname(__file__), "uploads"))
 ALLOWED_EXT = {"pdf", "docx"}
 
 app = Flask(__name__)
